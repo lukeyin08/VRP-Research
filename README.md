@@ -118,7 +118,7 @@ VIX at close *t* pairs with RV over *t+1..t+22*, never a window reaching back in
 - Flipping the signal at *s* cannot alter P&L through *s* (`test_backtest.py`).
 - HAR features, estimator constants, and cost arithmetic checked against hand computation.
 
-54 hermetic tests, CI on 3.11/3.12, ruff and mypy clean.
+54 hermetic tests, CI on 3.10/3.11/3.12, ruff and mypy clean.
 
 ## 7. Limitations
 
