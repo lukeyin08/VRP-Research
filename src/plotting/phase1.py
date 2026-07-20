@@ -51,7 +51,7 @@ def plot_vrp_expost(df: pd.DataFrame) -> Path:
     clip = d["vrp_expost"].clip(d["vrp_expost"].quantile(0.005), d["vrp_expost"].quantile(0.995))
     ax2.hist(clip, bins=80, color="#7f7f7f")
     ax2.axvline(0, lw=0.8, color="#000000")
-    ax2.set_xlabel("VRP (variance units, clipped at 0.5/99.5%)")
+    ax2.set_xlabel("VRP (var units, 0.5-99.5 pct range)")
     ax2.set_ylabel("Days")
     ax2.set_title(f"{(d['vrp_expost'] > 0).mean():.0%} of days positive")
     return savefig(fig, "phase1_vrp_expost.png")

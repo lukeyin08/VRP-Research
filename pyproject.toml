@@ -13,6 +13,7 @@ dependencies = [
     "arch>=7.0,<8",
     "lightgbm>=4.3,<5",
     "matplotlib>=3.9",
+    "tabulate>=0.10.0",
 ]
 
 [dependency-groups]

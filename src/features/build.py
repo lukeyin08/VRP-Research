@@ -19,7 +19,7 @@ import pandas as pd
 from src.config import HORIZONS, PROCESSED_DIR
 from src.data.align import AlignmentReport, build_joint
 from src.data.raw_loaders import load_cboe_index, load_optional_cboe, load_stooq, load_yahoo_ohlcv
-from src.data.validate import Issue, assert_clean, check_ohlc, check_variance
+from src.data.validate import Issue, assert_clean, check_close, check_ohlc, check_variance
 from src.features import rv
 
 
@@ -31,11 +31,13 @@ def assemble_features(
     strict: bool = True,
 ) -> tuple[pd.DataFrame, AlignmentReport, list[Issue]]:
     issues: list[Issue] = []
+    # SPX: full OHLC checks (we consume the whole bar for range estimators).
     issues += check_ohlc(spx, "gspc", lo_bound=100, hi_bound=50000)
-    issues += check_ohlc(vix, "vix", lo_bound=4, hi_bound=200)
+    # VIX family: we consume closes only; see check_close docstring.
+    issues += check_close(vix, "vix", lo_bound=4, hi_bound=200)
     for name, df_t in term.items():
         if df_t is not None:
-            issues += check_ohlc(df_t, name, lo_bound=4, hi_bound=200)
+            issues += check_close(df_t, name, lo_bound=4, hi_bound=200)
     if strict:
         assert_clean(issues)
 
@@ -47,6 +49,12 @@ def assemble_features(
     df["dv_garman_klass"] = rv.garman_klass_var(o, h, lo, c)
     df["dv_rogers_satchell"] = rv.rogers_satchell_var(o, h, lo, c)
     df["dv_yang_zhang22"] = rv.yang_zhang_var(o, h, lo, c, window=22)
+
+    # Yahoo ^GSPC opens are synthetic (== prior close) on most days before ~2008.
+    # cc and Parkinson are unaffected; Garman-Klass / Rogers-Satchell / Yang-Zhang
+    # depend on the open and are only trustworthy where this flag is mostly False.
+    # Modeling phases must mask open-dependent features on the synthetic-open era.
+    df["spx_open_synthetic"] = o.round(4) == c.shift(1).round(4)
 
     for name in ("cc", "parkinson", "garman_klass", "rogers_satchell"):
         issues += check_variance(df[f"dv_{name}"].dropna(), f"dv_{name}")

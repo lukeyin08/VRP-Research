@@ -48,19 +48,29 @@ def _estimator_table(df: pd.DataFrame) -> pd.DataFrame:
         "yang-zhang (22d)": "dv_yang_zhang22",
     }
     d = df[list(cols.values())].dropna()
+    post = d[d.index >= "2008-01-01"]  # real-open era: open-dependent estimators valid
     out = pd.DataFrame(
         {
-            "mean ann. vol (pts)": {
+            "mean ann. vol (pts), full": {
                 k: float(np.sqrt(d[v].mean() * 252) * 100) for k, v in cols.items()
             },
-            "corr with cc (daily)": {k: float(d[v].corr(d["dv_cc"])) for k, v in cols.items()},
-            "corr with cc (22d sums)": {
-                k: float(d[v].rolling(22).sum().corr(d["dv_cc"].rolling(22).sum()))
+            "mean ann. vol (pts), 2008+": {
+                k: float(np.sqrt(post[v].mean() * 252) * 100) for k, v in cols.items()
+            },
+            "corr with cc (22d sums), 2008+": {
+                k: float(post[v].rolling(22).sum().corr(post["dv_cc"].rolling(22).sum()))
                 for k, v in cols.items()
             },
         }
     )
     out.index.name = "estimator"
+    return out
+
+
+def _open_artifact_table(df: pd.DataFrame) -> pd.DataFrame:
+    s = df["spx_open_synthetic"]
+    out = s.groupby(pd.DatetimeIndex(s.index).year).mean().to_frame("share open==prev close")
+    out.index.name = "year"
     return out
 
 
@@ -81,6 +91,7 @@ def main() -> int:
     TABLES_DIR.mkdir(parents=True, exist_ok=True)
     summary.round(4).to_markdown(TABLES_DIR / "phase1_summary.md")
     est.round(4).to_markdown(TABLES_DIR / "phase1_estimators.md")
+    _open_artifact_table(df).round(3).to_markdown(TABLES_DIR / "phase1_open_artifact.md")
 
     p1 = plot_vix_vs_forward_rv(df)
     p2 = plot_vrp_expost(df)

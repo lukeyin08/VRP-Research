@@ -129,6 +129,51 @@ def check_ohlc(df: pd.DataFrame, name: str, lo_bound: float, hi_bound: float) ->
     return issues
 
 
+def check_close(df: pd.DataFrame, name: str, lo_bound: float, hi_bound: float) -> list[Issue]:
+    """Validation for series where only the CLOSE is consumed (the VIX family).
+
+    CBOE's published index histories contain rows whose open/high/low fields
+    violate OHLC relations (e.g. VIX 1992-02-11 has open 19.24 > high 18.57;
+    VIX6M 2019-07-05 has high < low). We never use those fields, so full index
+    and close checks stay hard errors while OHLC-field inconsistencies are
+    downgraded to a counted warning. Documented in the README data notes.
+    """
+    issues = check_index(df, name)
+    c = df["close"]
+    nonpos = c[c <= 0]
+    if len(nonpos):
+        issues.append(
+            Issue("error", name, "nonpositive", f"{len(nonpos)} closes <= 0", _dates(nonpos.index))
+        )
+    oob = c[(c < lo_bound) | (c > hi_bound)]
+    if len(oob):
+        issues.append(
+            Issue(
+                "warn",
+                name,
+                "range",
+                f"{len(oob)} closes outside [{lo_bound}, {hi_bound}]",
+                _dates(oob.index),
+            )
+        )
+    if {"open", "high", "low"}.issubset(df.columns):
+        o, h, lo = df["open"], df["high"], df["low"]
+        bad = df[
+            (h + _EPS < o) | (h + _EPS < c) | (h + _EPS < lo) | (lo - _EPS > o) | (lo - _EPS > c)
+        ]
+        if len(bad):
+            issues.append(
+                Issue(
+                    "warn",
+                    name,
+                    "ohlc_fields_inconsistent",
+                    f"{len(bad)} rows with inconsistent (unused) o/h/l fields",
+                    _dates(bad.index),
+                )
+            )
+    return issues
+
+
 def check_variance(s: pd.Series, name: str) -> list[Issue]:
     issues: list[Issue] = []
     neg = s[s < -_EPS]
@@ -157,11 +202,11 @@ def main() -> int:
 
     issues: list[Issue] = []
     issues += check_ohlc(load_yahoo_ohlcv("gspc"), "gspc", lo_bound=100, hi_bound=50000)
-    issues += check_ohlc(load_cboe_index("vix"), "vix", lo_bound=4, hi_bound=200)
+    issues += check_close(load_cboe_index("vix"), "vix", lo_bound=4, hi_bound=200)
     for name in ("vix9d", "vix3m", "vix6m"):
         df = load_optional_cboe(name)
         if df is not None:
-            issues += check_ohlc(df, name, lo_bound=4, hi_bound=200)
+            issues += check_close(df, name, lo_bound=4, hi_bound=200)
     print(report(issues))
     if any(i.severity == "error" for i in issues):
         return 1
