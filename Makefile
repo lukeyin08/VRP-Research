@@ -7,6 +7,9 @@ data:
 phase1:
 	uv run python -m src.run_phase1
 
+phase2:
+	uv run python -m src.run_phase2
+
 test:
 	uv run pytest -q
 
@@ -19,5 +22,5 @@ fmt:
 	uv run ruff format src tests scripts
 	uv run ruff check --fix src tests scripts
 
-# extended by later phases: phase2 .. phase7, then `all` reproduces everything
-all: phase1
+# extended by later phases, then `all` reproduces everything
+all: phase1 phase2

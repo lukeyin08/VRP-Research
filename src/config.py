@@ -21,5 +21,14 @@ PRIMARY_HORIZON = 22  # ~30 calendar days, matching the VIX horizon
 
 SAMPLE_START = "1990-01-02"  # first VIX print (current methodology, back-computed)
 
+# --- evaluation protocol ------------------------------------------------------
+# Walk-forward forecasts are produced from EVAL_START (first ten years are the
+# initial training window). Phases 2-4 evaluate ONLY on [EVAL_START, DEV_END].
+# [HOLDOUT_START, ...] is the final untouched test set, evaluated exactly once
+# in Phase 7; src.evaluation.walkforward.holdout_guard enforces this in code.
+EVAL_START = "2000-01-03"
+DEV_END = "2018-12-31"
+HOLDOUT_START = "2019-01-01"
+
 # Single global seed, recorded here; every stochastic step must use it.
 SEED = 1990
