@@ -27,13 +27,41 @@ LOG_FLOOR_ANN = 1e-5
 
 
 def har_design(
-    df: pd.DataFrame, horizon: int, use_iv: bool = False, log_space: bool = False
+    df: pd.DataFrame,
+    horizon: int,
+    use_iv: bool = False,
+    log_space: bool = False,
+    jump_mode: str | None = None,
 ) -> tuple[pd.DataFrame, pd.Series]:
-    """Feature matrix (info through close t) and target (t+1 .. t+horizon)."""
-    cols = list(HAR_FEATURES) + (["iv30"] if use_iv else [])
-    x = df[cols].copy()
+    """Feature matrix (info through close t) and target (t+1 .. t+horizon).
+
+    jump_mode: None (plain HAR), "j" (HAR-RV-J: adds the 22d jump proxy), or
+    "cj" (HAR-RV-CJ: weekly/monthly RV replaced by continuous + jump parts,
+    continuous = min(BV, RV)). Jump variants run in LEVELS only (jumps are
+    frequently exactly zero, so logs are undefined); disclosed in the README as
+    a daily-frequency approximation of the intraday construction.
+    """
+    if jump_mode is None:
+        cols = list(HAR_FEATURES)
+        x = df[cols].copy()
+    elif jump_mode == "j":
+        x = df[[*HAR_FEATURES, "jump_22"]].copy()
+    elif jump_mode == "cj":
+        x = pd.DataFrame(index=df.index)
+        x["rv_cc_trail_1"] = df["rv_cc_trail_1"]
+        for hz in (5, 22):
+            x[f"cont_{hz}"] = pd.concat(
+                [df[f"bv_trail_{hz}"], df[f"rv_cc_trail_{hz}"]], axis=1
+            ).min(axis=1)
+            x[f"jump_{hz}"] = df[f"jump_{hz}"]
+    else:
+        raise ValueError(f"unknown jump_mode {jump_mode!r}")
+    if use_iv:
+        x["iv30"] = df["iv30"]
     y = df[f"target_rv_{horizon}"].copy()
     if log_space:
+        if jump_mode is not None:
+            raise ValueError("jump variants run in levels only (jumps are often exactly 0)")
         xv = np.clip(x.to_numpy(dtype=float), LOG_FLOOR_ANN, None)
         yv = np.clip(y.to_numpy(dtype=float), LOG_FLOOR_ANN, None)
         x = pd.DataFrame(np.log(xv), index=x.index, columns=x.columns)
@@ -45,14 +73,23 @@ def har_design(
 class HARForecaster:
     log_space: bool = False
     use_iv: bool = False
+    jump_mode: str | None = None
     spec: WalkForwardSpec = field(default_factory=lambda: WalkForwardSpec(horizon=22))
 
     @property
     def name(self) -> str:
         base = "har_log" if self.log_space else "har"
+        if self.jump_mode:
+            base += f"_{self.jump_mode}"
         return base + ("_iv" if self.use_iv else "")
 
     def forecast(self, df: pd.DataFrame, eval_index: pd.DatetimeIndex) -> pd.Series:
-        x, y = har_design(df, self.spec.horizon, use_iv=self.use_iv, log_space=self.log_space)
+        x, y = har_design(
+            df,
+            self.spec.horizon,
+            use_iv=self.use_iv,
+            log_space=self.log_space,
+            jump_mode=self.jump_mode,
+        )
         f = walkforward_ols(x, y, eval_index, self.spec, log_space=self.log_space)
         return f.rename(self.name)

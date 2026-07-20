@@ -65,6 +65,13 @@ def assemble_features(
     for hz in HORIZONS:
         df[f"rv_cc_trail_{hz}"] = rv.realized_var_trailing(df["dv_cc"], hz)
         df[f"rv_gk_trail_{hz}"] = rv.realized_var_trailing(df["dv_garman_klass"], hz)
+        df[f"rv_pk_trail_{hz}"] = rv.realized_var_trailing(df["dv_parkinson"], hz)
+
+    # signed daily log return (needed by GARCH and bipower variation)
+    df["ret_cc"] = rv.log_returns(c)
+    for hz in (5, 22):
+        df[f"bv_trail_{hz}"] = rv.bipower_var_trailing(df["ret_cc"], hz)
+        df[f"jump_{hz}"] = rv.jump_component(df[f"rv_cc_trail_{hz}"], df[f"bv_trail_{hz}"])
 
     # forward RV (targets): strictly t+1 .. t+h, payoff-relevant cc estimator
     for hz in HORIZONS:

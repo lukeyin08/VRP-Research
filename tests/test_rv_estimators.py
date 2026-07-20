@@ -97,6 +97,24 @@ def test_yang_zhang_degenerate_case() -> None:
     assert np.allclose(got, exp, rtol=1e-10)
 
 
+def test_bipower_hand_computed() -> None:
+    idx = pd.bdate_range("2020-01-01", periods=3)
+    r = pd.Series([0.01, -0.02, 0.015], index=idx)
+    bv = rv.bipower_var_trailing(r, horizon=3)
+    # window of 3 days has 2 adjacent products: |r2||r1| + |r3||r2|
+    expected = (math.pi / 2) * (0.02 * 0.01 + 0.015 * 0.02) * (252 / 2)
+    assert bv.iloc[2] == pytest.approx(expected, rel=1e-12)
+    assert bv.iloc[:2].isna().all()
+
+
+def test_jump_component_nonnegative_and_hand_computed() -> None:
+    idx = pd.bdate_range("2020-01-01", periods=3)
+    rv_t = pd.Series([0.05, 0.02, 0.04], index=idx)
+    bv_t = pd.Series([0.03, 0.05, 0.04], index=idx)
+    j = rv.jump_component(rv_t, bv_t)
+    assert j.tolist() == pytest.approx([0.02, 0.0, 0.0], rel=1e-12)
+
+
 def test_forward_and_trailing_window_arithmetic() -> None:
     idx = pd.bdate_range("2021-03-01", periods=4)
     dv = pd.Series([1e-4, 2e-4, 3e-4, 4e-4], index=idx)

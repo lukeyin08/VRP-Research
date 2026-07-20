@@ -110,3 +110,29 @@ def realized_var_trailing(
     return (daily_var.rolling(horizon).sum() * (trading_days / horizon)).rename(
         f"rv_trail_{horizon}"
     )
+
+
+def bipower_var_trailing(
+    returns: pd.Series, horizon: int, trading_days: int = TRADING_DAYS_PER_YEAR
+) -> pd.Series:
+    """Annualized bipower variation over the trailing `horizon` days.
+
+    BV over r_1..r_n = (pi/2) * (n/(n-1)) * sum_{i=2..n} |r_i||r_{i-1}|, which is
+    robust to jumps; max(RV - BV, 0) proxies the jump contribution
+    (Barndorff-Nielsen & Shephard). NOTE: applied here at DAILY frequency across
+    days in the window - a coarse approximation of the intraday construction,
+    disclosed as such wherever it is used.
+    """
+    if horizon < 2:
+        raise ValueError("bipower needs horizon >= 2")
+    prod = returns.abs() * returns.abs().shift(1)
+    # the n-day window (t-n+1 .. t) contains n-1 adjacent products, ending at t
+    window_sum = prod.rolling(horizon - 1).sum()
+    return ((np.pi / 2.0) * window_sum * (trading_days / (horizon - 1.0))).rename(
+        f"bv_trail_{horizon}"
+    )
+
+
+def jump_component(rv_trail: pd.Series, bv_trail: pd.Series) -> pd.Series:
+    """Jump proxy: max(RV - BV, 0), annualized variance units."""
+    return (rv_trail - bv_trail).clip(lower=0.0).rename("jump")

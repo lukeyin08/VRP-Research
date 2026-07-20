@@ -11,7 +11,9 @@ dependence). Between refits, coefficients are frozen; features update daily.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
 import pandas as pd
@@ -48,6 +50,64 @@ class WalkForwardSpec:
     horizon: int
     refit_every: int = 22  # eval dates between refits (~monthly)
     min_train: int = 252  # refuse to forecast on fewer usable training rows
+
+
+class SupportsFitPredict(Protocol):
+    def fit(self, x: np.ndarray, y: np.ndarray) -> object: ...
+
+    def predict(self, x: np.ndarray) -> np.ndarray: ...
+
+
+def walkforward_model(
+    x: pd.DataFrame,
+    y: pd.Series,
+    eval_index: pd.DatetimeIndex,
+    spec: WalkForwardSpec,
+    model_factory: Callable[[], SupportsFitPredict],
+    log_space: bool = False,
+) -> pd.Series:
+    """Same information barrier as walkforward_ols for any fit/predict model.
+
+    A fresh model instance is fitted at each refit on rows whose target windows
+    are fully observed (position <= t - horizon); between refits the fitted
+    model is frozen. Log-space retransformation applies Duan smearing estimated
+    on training residuals.
+    """
+    full_index = x.index
+    if not full_index.equals(y.index):
+        raise ValueError("x and y must share an index")
+    positions = full_index.get_indexer(eval_index)
+    if (positions < 0).any():
+        raise ValueError("eval dates missing from feature index")
+
+    x_np = x.to_numpy(dtype=float)
+    y_np = y.to_numpy(dtype=float)
+    model: SupportsFitPredict | None = None
+    smear = 1.0
+    out = np.full(len(eval_index), np.nan)
+
+    for i, pos in enumerate(positions):
+        if i % spec.refit_every == 0:
+            train_end = pos - spec.horizon + 1
+            if train_end > 0:
+                xt, yt = x_np[:train_end], y_np[:train_end]
+                ok = ~(np.isnan(xt).any(axis=1) | np.isnan(yt))
+                if ok.sum() >= spec.min_train:
+                    m = model_factory()
+                    m.fit(xt[ok], yt[ok])
+                    model = m
+                    if log_space:
+                        resid = yt[ok] - np.asarray(m.predict(xt[ok]), dtype=float)
+                        smear = float(np.mean(np.exp(resid)))
+        if model is None:
+            continue
+        row = x_np[pos]
+        if np.isnan(row).any():
+            continue
+        pred = float(np.asarray(model.predict(row.reshape(1, -1)), dtype=float)[0])
+        out[i] = np.exp(pred) * smear if log_space else pred
+
+    return pd.Series(out, index=eval_index)
 
 
 def walkforward_ols(
