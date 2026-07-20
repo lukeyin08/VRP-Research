@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -17,11 +18,12 @@ def plot_full_equity(pnl: pd.DataFrame) -> Path:
     fig, ax = plt.subplots(figsize=(9.8, 4.4))
     for name in pnl.columns:
         ax.plot(pnl.index, pnl[name].cumsum(), label=name, **STYLES.get(name, {}))
-    ax.axvline(pd.Timestamp(HOLDOUT_START), color="#000000", lw=0.9, ls="--")
+    x_hold = float(mdates.date2num(pd.Timestamp(HOLDOUT_START)))
+    ax.axvline(x_hold, color="#000000", lw=0.9, ls="--")
     ymax = ax.get_ylim()[1]
     ax.annotate(
         "holdout begins\n(evaluated once)",
-        xy=(pd.Timestamp(HOLDOUT_START), ymax * 0.92),
+        xy=(x_hold, ymax * 0.92),
         fontsize=8,
         ha="left",
     )
