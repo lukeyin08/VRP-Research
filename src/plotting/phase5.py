@@ -32,7 +32,7 @@ def plot_breakeven(breakeven: pd.DataFrame) -> Path:
     ax.axvspan(0.5, 1.0, color="#dddddd", alpha=0.5, label="realistic SPX spreads")
     ax.set_xlabel("Assumed half-spread (vol points)")
     ax.set_ylabel("Net annualized Sharpe")
-    ax.set_title("Strategy Sharpe vs transaction costs - the chart that decides the project")
+    ax.set_title("Net Sharpe vs assumed half-spread, development period 2000-2018")
     ax.legend(loc="upper right", fontsize=8)
     return savefig(fig, "phase5_breakeven.png")
 

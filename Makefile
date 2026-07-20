@@ -10,6 +10,23 @@ phase1:
 phase2:
 	uv run python -m src.run_phase2
 
+phase3:
+	uv run python -m src.run_phase3
+
+phase4:
+	uv run python -m src.run_phase4
+
+phase5:
+	uv run python -m src.run_phase5
+
+phase6:
+	uv run python -m src.run_phase6
+
+# Phase 7 evaluates the final holdout. It exists to be run once (and re-run
+# only to REPRODUCE that single evaluation - never to iterate).
+phase7:
+	uv run python -m src.run_phase7
+
 test:
 	uv run pytest -q
 
@@ -22,5 +39,5 @@ fmt:
 	uv run ruff format src tests scripts
 	uv run ruff check --fix src tests scripts
 
-# extended by later phases, then `all` reproduces everything
-all: phase1 phase2
+# reproduces every number and figure in the README (data must be pulled first)
+all: phase1 phase2 phase3 phase4 phase5 phase6 phase7

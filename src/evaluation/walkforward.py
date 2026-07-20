@@ -25,6 +25,19 @@ class HoldoutViolation(RuntimeError):
     pass
 
 
+def holdout_eval_index(full_index: pd.DatetimeIndex, horizon: int) -> pd.DatetimeIndex:
+    """Final-holdout eval dates: from HOLDOUT_START, targets fully observable.
+
+    This index is scored EXACTLY ONCE, in Phase 7. Re-running Phase 7
+    reproduces that single evaluation; it must never inform model or strategy
+    selection.
+    """
+    last_ok = len(full_index) - 1 - horizon
+    idx = full_index[full_index >= pd.Timestamp(HOLDOUT_START)]
+    idx = idx[full_index.get_indexer(idx) <= last_ok]
+    return pd.DatetimeIndex(idx)
+
+
 def dev_eval_index(full_index: pd.DatetimeIndex, horizon: int) -> pd.DatetimeIndex:
     """Development-period eval dates: within [EVAL_START, DEV_END] AND with the
     entire target window t+1..t+h inside the development period, so no dev
