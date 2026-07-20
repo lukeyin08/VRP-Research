@@ -86,6 +86,52 @@ def test_log_space_positive_and_finite() -> None:
     assert np.isfinite(got).all()
 
 
+class _MeanModel:
+    """Trivial fit/predict model for testing the generic walk-forward barrier."""
+
+    def __init__(self) -> None:
+        self.mean = 0.0
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> object:
+        self.mean = float(y.mean())
+        return self
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        return np.full(len(x), self.mean)
+
+
+def test_walkforward_model_immune_to_future_poisoning() -> None:
+    from src.evaluation.walkforward import walkforward_model
+
+    df = _feature_frame()
+    x, y = har_design(df, horizon=22)
+    eval_index = pd.DatetimeIndex(df.index[300:378])
+    spec = WalkForwardSpec(horizon=22, refit_every=5, min_train=100)
+
+    base = walkforward_model(x, y, eval_index, spec, model_factory=_MeanModel)
+
+    t0_pos = 350
+    x_p, y_p = x.copy(), y.copy()
+    x_p.iloc[t0_pos + 1 :] = 777.0
+    y_p.iloc[t0_pos + 1 :] = 777.0
+    poisoned = walkforward_model(x_p, y_p, eval_index, spec, model_factory=_MeanModel)
+
+    upto_t0 = eval_index[df.index.get_indexer(eval_index) <= t0_pos]
+    np.testing.assert_array_equal(base[upto_t0].to_numpy(), poisoned[upto_t0].to_numpy())
+
+    # and the mean model must see ONLY observable targets: poisoning the target
+    # inside (t-22, t] must not change the forecast at t
+    y_q = y.copy()
+    y_q.iloc[t0_pos - 21 : t0_pos + 1] = 1e6
+    same = walkforward_model(
+        x, y_q, pd.DatetimeIndex([df.index[t0_pos]]), WalkForwardSpec(22, 1, 100), _MeanModel
+    )
+    base_t0 = walkforward_model(
+        x, y, pd.DatetimeIndex([df.index[t0_pos]]), WalkForwardSpec(22, 1, 100), _MeanModel
+    )
+    assert same.iloc[0] == base_t0.iloc[0]
+
+
 def test_holdout_guard_blocks_2019_plus() -> None:
     good = pd.bdate_range("2000-01-03", "2018-11-30")
     holdout_guard(pd.DatetimeIndex(good))  # must not raise

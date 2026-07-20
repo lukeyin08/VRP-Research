@@ -51,3 +51,4 @@ phase,model,horizon,params,eval_window,first_logged_utc
 3,har_log_iv,1,"{""min_train"": 252, ""refit_every"": 22}",2000-01-03..2018-12-31,2026-07-20T03:19:42+00:00
 3,har_j,1,"{""min_train"": 252, ""refit_every"": 22}",2000-01-03..2018-12-31,2026-07-20T03:19:42+00:00
 3,har_cj,1,"{""min_train"": 252, ""refit_every"": 22}",2000-01-03..2018-12-31,2026-07-20T03:19:42+00:00
+4,lightgbm,22,"{""bagging_fraction"": 0.8, ""bagging_freq"": 1, ""feature_fraction"": 0.8, ""features"": [""rv_cc_trail_1"", ""rv_cc_trail_5"", ""rv_cc_trail_22"", ""bv_trail_22"", ""jump_22"", ""iv30"", ""rv_pk_trail_5"", ""rv_pk_trail_22""], ""learning_rate"": 0.05, ""min_data_in_leaf"": 50, ""num_boost_round"": 300, ""num_leaves"": 15, ""objective"": ""regression"", ""seed"": 1990, ""verbosity"": -1}",2000-01-03..2018-12-31,2026-07-20T03:22:27+00:00
