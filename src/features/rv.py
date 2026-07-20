@@ -4,7 +4,7 @@ Units convention: every function returns DAILY variance of log returns
 (decimal^2). Aggregation to annualized h-day realized variance is done by
 `realized_var_forward` / `realized_var_trailing`: ann RV = (252/h) * sum.
 
-Estimator notes (disclosed prominently in the README):
+Estimator notes (also in the README):
 - cc (close-to-close squared log return) is the payoff-relevant series: the
   floating leg of a variance swap is defined on close-to-close daily returns.
   It is unbiased but noisy, and includes the overnight gap.
